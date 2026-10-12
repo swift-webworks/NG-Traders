@@ -1,0 +1,42 @@
+{% extends "owner/base_owner.html" %}
+{% block title %}Import preview{% endblock %}
+{% block content %}
+<a href="{% url 'owner_import' %}">← Imports</a>
+<h1 class="h3 mt-1">Import preview — {{ batch.filename }}</h1>
+{% with c=batch.summary.counts %}
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <span class="badge-ng">{{ batch.summary.total }} rows</span>
+  <span class="badge-ng p-PAID">{{ c.create }} new</span>
+  <span class="badge-ng">{{ c.update }} updates</span>
+  <span class="badge-ng">{{ c.unchanged }} unchanged</span>
+  <span class="badge-ng {% if c.error %}p-FAILED{% endif %}">{{ c.error }} with errors</span>
+  <span class="badge-ng s-PENDING">{{ batch.summary.price_changes }} price changes</span>
+</div>
+{% endwith %}
+
+{% if batch.status == 'PREVIEW' %}
+  <div class="alert-ng warning p-3 mb-3">Rows with errors are skipped. Everything else is applied in one step; if anything goes wrong, nothing is changed.
+    <strong>Take a database backup before importing real data.</strong></div>
+  <form method="post" class="d-flex gap-2 mb-3">{% csrf_token %}
+    <button class="btn btn-ng" name="action" value="apply" type="submit">Apply {{ batch.summary.counts.create|add:batch.summary.counts.update }} change(s)</button>
+    <button class="btn btn-ng-outline" name="action" value="discard" type="submit">Discard</button>
+  </form>
+{% elif batch.status == 'APPLIED' %}
+  <div class="alert-ng success p-3 mb-3">Applied on {{ batch.applied_at|date:"j M Y, g:i A" }}.
+    {% if batch.summary.report.alias_warnings %}<ul class="mb-0">{% for w in batch.summary.report.alias_warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}</div>
+{% else %}<div class="alert-ng info p-3 mb-3">This import was discarded.</div>{% endif %}
+
+<div class="table-responsive"><table class="table table-ng align-middle">
+  <thead><tr><th scope="col">Line</th><th scope="col">Action</th><th scope="col">Name</th><th scope="col">Unit</th><th scope="col" class="text-end">Price</th><th scope="col">Notes</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr>
+      <td>{{ r.line }}</td>
+      <td><span class="badge-ng {% if r.action == 'error' %}p-FAILED{% endif %}">{{ r.action|upper }}</span></td>
+      <td><strong>{{ r.name_en }}</strong>{% if r.pack_description %} ({{ r.pack_description }}){% endif %}{% if r.name_ta %}<br>{{ r.name_ta }}{% endif %}{% if r.external_code %}<br><small>code {{ r.external_code }}</small>{% endif %}</td>
+      <td>{{ r.unit }}</td>
+      <td class="text-end price">{% if r.old_price %}<s>₹{{ r.old_price }}</s> {% endif %}{% if r.price %}₹{{ r.price }}{% endif %}</td>
+      <td>{% for e in r.errors %}<div class="field-error">{{ e }}</div>{% endfor %}{% for w in r.warnings %}<div>⚠ {{ w }}</div>{% endfor %}</td>
+    </tr>{% endfor %}
+  </tbody></table></div>
+{% if truncated %}<p class="text-muted">Showing the first 500 rows. All rows are processed when you apply.</p>{% endif %}
+{% endblock %}

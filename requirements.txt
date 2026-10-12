@@ -1,0 +1,14 @@
+# Core web framework (LTS release line). Provides ORM, admin, auth, CSRF, sessions.
+Django>=5.2,<5.3
+
+# Excel (.xlsx) support for the product import page only. Remove if you only ever import CSV.
+openpyxl>=3.1,<3.2
+
+# Production only: WSGI application server (run behind Nginx).
+gunicorn>=23.0,<24
+
+# Production only: PostgreSQL driver (needed when DB_ENGINE=postgres).
+psycopg[binary]>=3.2,<4
+
+# Product images (ImageField) need Pillow.
+Pillow>=10.4,<12

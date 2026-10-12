@@ -1,0 +1,76 @@
+{% extends "owner/base_owner.html" %}
+{% block title %}Orders{% endblock %}
+{% block content %}
+<div id="new-order-alert" class="alert-ng warning p-3 mb-3" role="alert" hidden>
+  🔔 <strong>New order received.</strong> <a href="" onclick="location.reload();return false;">Refresh the list</a>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Orders</h1>
+  <form method="get" class="d-flex gap-2" role="search">
+    <input type="hidden" name="f" value="{{ current }}">
+    <label class="visually-hidden" for="q">Search orders</label>
+    <input id="q" name="q" value="{{ q }}" class="form-control" placeholder="Order no., name or phone" style="min-width:230px">
+    <button class="btn btn-ng" type="submit">Search</button>
+  </form>
+</div>
+
+{% if counts.awaiting %}<div class="alert-ng warning p-3 mb-2">⏳ {{ counts.awaiting }} UPI payment(s) waiting for you to verify.</div>{% endif %}
+{% if counts.refunds %}<div class="alert-ng error p-3 mb-2">⚠ {{ counts.refunds }} rejected/cancelled order(s) were paid and still need a refund decision.</div>{% endif %}
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+  {% for key, label, n in tabs %}
+    <a class="tab-link {% if key == current %}active{% endif %}" href="?f={{ key }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}">{{ label }}{% if n is not None %} ({{ n }}){% endif %}</a>
+  {% endfor %}
+</div>
+
+{% if page.object_list %}
+<div class="table-responsive">
+<table class="table table-ng align-middle">
+  <thead><tr><th scope="col">Order</th><th scope="col">When</th><th scope="col">Customer</th><th scope="col">Items</th><th scope="col">Type</th><th scope="col" class="text-end">Total</th><th scope="col">Status</th><th scope="col">Payment</th></tr></thead>
+  <tbody>
+  {% for o in page.object_list %}
+    <tr>
+      <th scope="row"><a href="{% url 'owner_order' o.pk %}">{{ o.order_number }}</a></th>
+      <td>{{ o.created_at|date:"j M, g:i A" }}</td>
+      <td>{{ o.customer_name }}<br><a href="tel:{{ o.customer_phone }}">{{ o.customer_phone }}</a></td>
+      <td>{{ o.items.all|length }}</td>
+      <td>{{ o.get_fulfilment_display }}</td>
+      <td class="text-end price">₹{{ o.total }}</td>
+      <td><span class="badge-ng s-{{ o.status }}">{{ o.get_status_display }}</span></td>
+      <td><span class="badge-ng p-{{ o.payment_status }}">{{ o.get_payment_status_display }}</span><br><small>{{ o.get_payment_method_display }}</small></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if page.paginator.num_pages > 1 %}
+<nav aria-label="Pages" class="d-flex gap-2 align-items-center">
+  {% if page.has_previous %}<a class="btn btn-ng-outline btn-sm" href="?f={{ current }}&amp;q={{ q|urlencode }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn btn-ng-outline btn-sm" href="?f={{ current }}&amp;q={{ q|urlencode }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+  <div class="panel">No orders here yet.</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Check for new orders every 15 seconds (no paid messaging service needed).
+  (function () {
+    var last = {{ counts.latest|default:0 }};
+    var alertBox = document.getElementById('new-order-alert');
+    var title = document.title;
+    function poll() {
+      fetch('{% url "owner_summary" %}', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (j && j.latest_id > last) { alertBox.hidden = false; document.title = '🔔 New order — ' + title; }
+        }).catch(function () {});
+    }
+    setInterval(poll, 15000);
+  })();
+</script>
+{% endblock %}

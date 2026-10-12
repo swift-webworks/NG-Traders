@@ -1,0 +1,103 @@
+{% extends "owner/base_owner.html" %}
+{% block title %}Order {{ order.order_number }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <a href="{% url 'owner_dashboard' %}">← All orders</a>
+    <h1 class="h3 mb-0 mt-1">Order {{ order.order_number }}</h1>
+    <div class="text-muted">{{ order.created_at|date:"j M Y, g:i A" }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <span class="badge-ng s-{{ order.status }}">Order: {{ order.get_status_display }}</span>
+    <span class="badge-ng p-{{ order.payment_status }}">Payment: {{ order.get_payment_status_display }}</span>
+    <a class="btn btn-ng-outline btn-sm" href="{% url 'owner_print' order.pk %}" target="_blank" rel="noopener">🖨 Print bill</a>
+  </div>
+</div>
+
+{% if order.refund_due %}<div class="alert-ng error p-3 mb-3">⚠ This order was {{ order.get_status_display|lower }} <strong>after payment</strong>. Return ₹{{ order.total }} to the customer, then record it below. The system never marks a refund as done by itself.</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="panel mb-3">
+      <h2 class="h5">Items</h2>
+      <div class="table-responsive"><table class="table align-middle mb-2">
+        <thead><tr><th scope="col">#</th><th scope="col">Item</th><th scope="col" class="text-end">Qty</th><th scope="col" class="text-end">Price</th><th scope="col" class="text-end">Total</th></tr></thead>
+        <tbody>{% for it in order.items.all %}
+          <tr><td>{{ forloop.counter }}</td><td><strong>{{ it.name_en }}</strong>{% if it.name_ta %}<br>{{ it.name_ta }}{% endif %}</td>
+            <td class="text-end price">{{ it.quantity|floatformat:"-3" }} {{ it.unit_label }}</td>
+            <td class="text-end price">₹{{ it.unit_price }}</td><td class="text-end price">₹{{ it.line_total }}</td></tr>
+        {% endfor %}</tbody></table></div>
+      <div class="totals">
+        <div class="row-t"><span>Subtotal</span><span class="price">₹{{ order.subtotal }}</span></div>
+        <div class="row-t"><span>Delivery charge</span><span class="price">₹{{ order.delivery_charge }}</span></div>
+        <div class="row-t grand"><span>Total</span><span class="price">₹{{ order.total }}</span></div>
+      </div>
+    </div>
+    <div class="panel mb-3">
+      <h2 class="h5">Customer</h2>
+      <p class="mb-1"><strong>{{ order.customer_name }}</strong> · <a href="tel:{{ order.customer_phone }}">{{ order.customer_phone }}</a></p>
+      <p class="mb-1">{{ order.get_fulfilment_display }}{% if order.fulfilment == 'DELIVERY' %} — {{ order.delivery_address|linebreaksbr }}{% endif %}</p>
+      <p class="mb-0">{% if order.notes %}Note: {{ order.notes|linebreaksbr }}{% else %}<span class="text-muted">No note from customer.</span>{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="panel mb-3">
+      <h2 class="h5">Order status</h2>
+      {% if next_statuses %}
+      <form method="post" class="mb-0">{% csrf_token %}
+        <input type="hidden" name="action" value="status">
+        <label class="form-label" for="note">Note (required to reject or cancel)</label>
+        <input id="note" name="note" class="form-control mb-2" maxlength="300">
+        <div class="d-flex flex-wrap gap-2">
+          {% for value, label in next_statuses %}
+            <button class="btn {% if value in needs_reason %}btn-danger-ng{% else %}btn-ng{% endif %}" name="status" value="{{ value }}" type="submit">{{ label }}</button>
+          {% endfor %}
+        </div>
+      </form>
+      {% else %}<p class="mb-0">This order is closed ({{ order.get_status_display }}).</p>{% endif %}
+    </div>
+
+    <div class="panel mb-3">
+      <h2 class="h5">Payment — {{ order.get_payment_method_display }}</h2>
+      <p class="mb-2">Amount due: <strong class="price">₹{{ order.total }}</strong>
+        {% if order.customer_payment_ref %}<br>Customer’s UPI reference: <strong>{{ order.customer_payment_ref }}</strong>{% endif %}</p>
+      {% if not can_verify %}
+        <p class="text-muted mb-0">Only the owner can verify payments.</p>
+      {% else %}
+        {% if order.payment_method == 'UPI' and order.payment_status != 'PAID' and order.payment_status != 'REFUNDED' and order.status != 'REJECTED' and order.status != 'CANCELLED' %}
+          <form method="post" class="mb-3">{% csrf_token %}
+            <p class="small mb-1">Check the money in your bank / UPI app first, then:</p>
+            <input name="reference" class="form-control mb-2" placeholder="Bank / UPI reference (optional)" maxlength="100" value="{{ order.customer_payment_ref }}">
+            <input name="note" class="form-control mb-2" placeholder="Note (required to reject)" maxlength="300">
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-ng" name="action" value="verify_upi" type="submit">✓ Payment received — mark PAID</button>
+              {% if order.payment_status != 'FAILED' %}<button class="btn btn-danger-ng" name="action" value="reject_payment" type="submit">✖ Reject payment</button>{% endif %}
+            </div>
+          </form>
+        {% elif order.payment_method != 'UPI' and order.payment_status == 'PENDING' and order.status != 'REJECTED' and order.status != 'CANCELLED' %}
+          <form method="post" class="mb-3">{% csrf_token %}
+            <input name="note" class="form-control mb-2" placeholder="Note (optional)" maxlength="300">
+            <button class="btn btn-ng" name="action" value="cash" type="submit">💵 Cash collected — mark PAID</button>
+          </form>
+        {% endif %}
+        {% if order.refund_due %}
+          <form method="post">{% csrf_token %}
+            <input name="reference" class="form-control mb-2" placeholder="Refund reference (optional)" maxlength="100">
+            <input name="note" class="form-control mb-2" placeholder="Note (optional)" maxlength="300">
+            <button class="btn btn-danger-ng" name="action" value="refund" type="submit">I have returned the money — record refund</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h2 class="h5">History</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for l in order.status_logs.all %}<li class="mb-1">{{ l.created_at|date:"j M, g:i A" }} — {% if l.from_status %}{{ l.from_status }} → {% endif %}<strong>{{ l.to_status }}</strong>{% if l.changed_by %} by {{ l.changed_by.get_username }}{% endif %}{% if l.note %} — {{ l.note }}{% endif %}</li>{% endfor %}
+        {% for p in order.payment_records.all %}<li class="mb-1">{{ p.created_at|date:"j M, g:i A" }} — Payment: <strong>{{ p.get_action_display }}</strong>{% if p.amount %} ₹{{ p.amount }}{% endif %}{% if p.recorded_by %} by {{ p.recorded_by.get_username }}{% endif %}{% if p.reference %} (ref {{ p.reference }}){% endif %}{% if p.note %} — {{ p.note }}{% endif %}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

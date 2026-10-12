@@ -1,0 +1,39 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Owner{% endblock %} — {{ shop.shop_name }}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ng.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="ng-header">
+    <div class="container py-2 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+      <a class="brand" href="{% url 'owner_dashboard' %}">NG <span>Owner</span></a>
+      <nav class="owner-nav d-flex flex-wrap gap-1 align-items-center" aria-label="Owner menu">
+        <a href="{% url 'owner_dashboard' %}">Orders</a>
+        {% if perms.catalogue.change_product %}<a href="{% url 'admin:catalogue_product_changelist' %}">Products &amp; prices</a>
+        <a href="{% url 'admin:catalogue_productalias_changelist' %}">Aliases</a>
+        <a href="{% url 'owner_import' %}">Import</a>{% endif %}
+        {% if perms.orders.change_shopsettings %}<a href="{% url 'admin:orders_shopsettings_changelist' %}">Shop settings</a>{% endif %}
+        {% if user.is_superuser %}<a href="{% url 'admin:index' %}">Admin</a>{% endif %}
+        <form method="post" action="{% url 'owner_logout' %}" class="d-inline">{% csrf_token %}
+          <button class="btn btn-peach btn-sm" type="submit">Log out ({{ user.get_username }})</button></form>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="container py-3" tabindex="-1">
+    {% if messages %}
+      <div aria-live="polite">{% for m in messages %}
+        <div class="alert-ng {{ m.tags|default:'info' }} p-3 mb-2">{% if m.tags == 'success' %}✓ {% elif m.tags == 'error' %}⚠ {% endif %}{{ m }}</div>
+      {% endfor %}</div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

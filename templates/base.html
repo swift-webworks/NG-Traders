@@ -1,0 +1,44 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#272233">
+  <title>{% block title %}{{ shop.shop_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ng.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="ng-header">
+    <div class="container py-3 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+      <a class="brand" href="{% url 'home' %}">NG <span>Traders</span></a>
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <a class="small-link" href="{% url 'order_lookup' %}">Track my order / ஆர்டர் நிலை</a>
+        <a class="call" href="tel:{{ shop.phone_primary }}" aria-label="Call NG Traders {{ shop.phone_primary }}">📞 {{ shop.phone_primary }}</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="container pb-5" tabindex="-1">
+    {% if messages %}
+      <div class="pt-3" aria-live="polite">
+        {% for m in messages %}
+          <div class="alert-ng {{ m.tags|default:'info' }} p-3 mb-2">{% if m.tags == 'success' %}✓ {% elif m.tags == 'error' %}⚠ {% endif %}{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="ng-footer">
+    <div class="container text-center">
+      <strong>{{ shop.shop_name }}</strong> — Wholesale provision store<br>
+      <a href="tel:{{ shop.phone_primary }}">{{ shop.phone_primary }}</a>{% if shop.phone_secondary %} · <a href="tel:{{ shop.phone_secondary }}">{{ shop.phone_secondary }}</a>{% endif %}
+      {% if shop.address %}<br>{{ shop.address }}{% endif %}
+    </div>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

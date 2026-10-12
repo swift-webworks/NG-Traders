@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Owner login — {{ shop.shop_name }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<div class="mx-auto pt-5" style="max-width:420px">
+  <h1 class="h3 mb-3">Owner login</h1>
+  <form method="post" class="panel">
+    {% csrf_token %}
+    {% if form.errors %}<div class="alert-ng error p-3 mb-3" role="alert">⚠ Wrong username or password, or this account is not allowed. Please try again.</div>{% endif %}
+    <div class="mb-3"><label class="form-label" for="id_username">Username</label>
+      <input id="id_username" name="username" class="form-control" autocomplete="username" required autofocus></div>
+    <div class="mb-3"><label class="form-label" for="id_password">Password</label>
+      <input id="id_password" name="password" type="password" class="form-control" autocomplete="current-password" required></div>
+    <input type="hidden" name="next" value="{{ next }}">
+    <button class="btn btn-ng w-100" type="submit">Log in</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Not allowed — {{ shop.shop_name }}{% endblock %}
+{% block content %}
+<div class="mx-auto pt-5" style="max-width:520px">
+  <div class="panel">
+    <h1 class="h3">⚠ You do not have permission</h1>
+    <p>Your account cannot open this page. Please ask the shop owner to give you access.</p>
+    <a class="btn btn-ng" href="{% url 'owner_dashboard' %}">Back to orders</a>
+  </div>
+</div>
+{% endblock %}

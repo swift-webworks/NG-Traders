@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Track my order — {{ shop.shop_name }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div class="mx-auto pt-4" style="max-width:520px">
+  <h1 class="h3 mb-3">Track my order<span class="sub ta">என் ஆர்டர் நிலை</span></h1>
+  <form method="post" class="panel">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="order_number" class="form-label">Order number <span class="sub ta">ஆர்டர் எண்</span></label>
+      <input id="order_number" name="order_number" class="form-control text-uppercase" placeholder="NG-260101-ABCDE" autocomplete="off" required maxlength="20">
+    </div>
+    <div class="mb-3">
+      <label for="phone" class="form-label">Mobile number used for the order <span class="sub ta">ஆர்டருக்கு கொடுத்த மொபைல் எண்</span></label>
+      <input id="phone" name="phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" required maxlength="15">
+    </div>
+    <button class="btn btn-ng w-100" type="submit">Show my order / காட்டு</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "owner/base_owner.html" %}
+{% block title %}Import products{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width:760px">
+  <h1 class="h3">Import products from your billing system</h1>
+  <p>Upload a <strong>CSV</strong> or <strong>Excel (.xlsx)</strong> export. You will see a preview first. <strong>Nothing is saved until you confirm.</strong>
+     Stock quantities are not imported. Required columns: <code>name</code>, <code>price</code>, <code>unit</code>. See <code>docs/IMPORT_FORMAT.md</code> for all columns.</p>
+  <form method="post" enctype="multipart/form-data" class="panel mb-4">{% csrf_token %}
+    <label class="form-label" for="file">Choose file</label>
+    <input id="file" name="file" type="file" class="form-control mb-3" accept=".csv,.xlsx" required>
+    <button class="btn btn-ng" type="submit">Upload and preview</button>
+  </form>
+  {% if recent %}<h2 class="h5">Recent imports</h2>
+    <ul>{% for b in recent %}<li><a href="{% url 'owner_import_preview' b.pk %}">{{ b.filename }}</a> — {{ b.get_status_display }} ({{ b.created_at|date:"j M, g:i A" }})</li>{% endfor %}</ul>{% endif %}
+</div>
+{% endblock %}

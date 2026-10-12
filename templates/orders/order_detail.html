@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Order {{ order.order_number }} — {{ shop.shop_name }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block content %}
+<div class="mx-auto pt-4" style="max-width:760px">
+  {% if just_placed %}
+    <div class="panel panel-peach mb-3">
+      <h1 class="h3 mb-1">✓ Thank you, {{ order.customer_name }}! Your order is placed.<span class="sub ta">நன்றி! உங்கள் ஆர்டர் பதிவு செய்யப்பட்டது.</span></h1>
+      <p class="mb-0">The shop has received it and will confirm it soon. Please keep your order number.
+        <span class="sub ta">கடை விரைவில் உறுதி செய்யும். ஆர்டர் எண்ணை வைத்துக்கொள்ளவும்.</span></p>
+    </div>
+  {% else %}
+    <h1 class="h3 mb-3">Your order<span class="sub ta">உங்கள் ஆர்டர்</span></h1>
+  {% endif %}
+
+  <div class="panel mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div><div class="text-muted small">Order number / ஆர்டர் எண்</div><div class="order-no">{{ order.order_number }}</div></div>
+      <div class="text-end">
+        <div><span class="badge-ng s-{{ order.status }}">Order: {{ order.get_status_display }}</span></div>
+        <div class="mt-1"><span class="badge-ng p-{{ order.payment_status }}">Payment: {{ order.get_payment_status_display }}</span></div>
+      </div>
+    </div>
+    <div class="small text-muted mt-2">Placed {{ order.created_at|date:"j M Y, g:i A" }} · {{ order.get_fulfilment_display }} · {{ order.get_payment_method_display }}</div>
+  </div>
+
+  {% if order.status == 'REJECTED' or order.status == 'CANCELLED' %}
+    <div class="alert-ng error p-3 mb-3">
+      ✖ This order was {{ order.get_status_display|lower }}. Please call the shop on <a href="tel:{{ shop.phone_primary }}">{{ shop.phone_primary }}</a>.
+      {% if order.payment_status == 'PAID' %}<br><strong>You paid for this order. The shop will arrange your refund; it is not refunded until the shop confirms it.</strong>{% endif %}
+      <span class="sub ta">இந்த ஆர்டர் ரத்து செய்யப்பட்டது. கடையை அழைக்கவும்.</span>
+    </div>
+  {% elif timeline %}
+    <div class="panel mb-3">
+      <h2 class="h5 mb-3">Order progress<span class="sub ta">ஆர்டர் நிலை</span></h2>
+      <ol class="timeline">
+        {% for step in timeline %}
+          <li class="{% if step.done %}done{% elif step.current %}current{% endif %}">
+            <span class="dot" aria-hidden="true">{% if step.done %}✓{% elif step.current %}●{% endif %}</span>
+            <span>{{ step.label }}{% if step.current %} <span class="visually-hidden">(current step)</span> — now{% endif %}</span>
+          </li>
+        {% endfor %}
+      </ol>
+    </div>
+  {% endif %}
+
+  {% if show_upi %}
+    <div class="panel panel-peach mb-3" id="upi-box">
+      <h2 class="h5">Pay by UPI<span class="sub ta">UPI மூலம் செலுத்தவும்</span></h2>
+      <p class="mb-1">Amount to pay: <strong class="fs-4 price">₹{{ order.total }}</strong></p>
+      <p class="mb-1">UPI ID: <strong class="user-select-all">{{ shop.upi_id }}</strong> ({{ shop.upi_payee_name|default:shop.shop_name }})</p>
+      <p class="mb-2">Please write <strong>{{ order.order_number }}</strong> in the payment note.</p>
+      {% if shop.upi_qr_image %}<img src="{{ shop.upi_qr_image.url }}" alt="UPI QR code for {{ shop.shop_name }}" width="220" height="220" class="mb-2 bg-white p-2 rounded">{% endif %}
+      {% if upi_link %}<p><a class="btn btn-ng" href="{{ upi_link }}">Open my UPI app / UPI செயலியைத் திற</a></p>{% endif %}
+      {% if order.payment_status == 'AWAITING_VERIFICATION' %}
+        <div class="alert-ng warning p-3 mb-0">⏳ You told us you paid{% if order.customer_payment_ref %} (reference {{ order.customer_payment_ref }}){% endif %}. The shop will check and confirm it. Your order is <strong>not marked paid</strong> until then.</div>
+      {% else %}
+        <form method="post" action="{% url 'order_claim_paid' order.public_token %}" class="mt-3">
+          {% csrf_token %}
+          <label class="form-label" for="ref">After paying, tell us (optional UPI reference) <span class="sub ta">செலுத்திய பின், UPI குறிப்பு எண் (விருப்பம்)</span></label>
+          <input id="ref" name="reference" class="form-control mb-2" maxlength="60" autocomplete="off">
+          <button class="btn btn-ng-outline" type="submit">I have paid / நான் செலுத்திவிட்டேன்</button>
+          <div class="small text-muted mt-1">The shop must verify your payment before it is marked as paid.</div>
+        </form>
+      {% endif %}
+      {% if order.payment_status == 'FAILED' %}<div class="alert-ng error p-3 mt-3">✖ The shop could not confirm your payment. Please try again or call {{ shop.phone_primary }}.</div>{% endif %}
+    </div>
+  {% elif order.payment_method != 'UPI' and order.payment_status == 'PENDING' and not order.is_terminal %}
+    <div class="panel mb-3">
+      <h2 class="h5">Payment<span class="sub ta">கட்டணம்</span></h2>
+      <p class="mb-0">Please pay <strong class="price">₹{{ order.total }}</strong> in cash {% if order.fulfilment == 'PICKUP' %}when you collect your order at the shop{% else %}to the delivery person{% endif %}.
+        <span class="sub ta">ரொக்கமாக {% if order.fulfilment == 'PICKUP' %}கடையில் எடுக்கும்போது{% else %}டெலிவரியில்{% endif %} செலுத்தவும்.</span></p>
+    </div>
+  {% endif %}
+
+  <div class="panel mb-3">
+    <h2 class="h5 mb-3">Order summary<span class="sub ta">ஆர்டர் விவரம்</span></h2>
+    <div class="table-responsive">
+      <table class="table align-middle mb-3">
+        <thead><tr><th scope="col">#</th><th scope="col">Item</th><th scope="col" class="text-end">Qty</th><th scope="col" class="text-end">Price</th><th scope="col" class="text-end">Total</th></tr></thead>
+        <tbody>
+          {% for it in order.items.all %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td><strong>{{ it.name_en }}</strong>{% if it.name_ta %}<span class="sub ta">{{ it.name_ta }}</span>{% endif %}</td>
+              <td class="text-end price">{{ it.quantity|floatformat:"-3" }} {{ it.unit_label }}</td>
+              <td class="text-end price">₹{{ it.unit_price }}</td>
+              <td class="text-end price">₹{{ it.line_total }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="totals">
+      <div class="row-t"><span>Subtotal</span><span class="price">₹{{ order.subtotal }}</span></div>
+      {% if order.fulfilment == 'DELIVERY' %}<div class="row-t"><span>Delivery charge</span><span class="price">{% if order.delivery_charge == 0 %}Free{% else %}₹{{ order.delivery_charge }}{% endif %}</span></div>{% endif %}
+      <div class="row-t grand"><span>Total</span><span class="price">₹{{ order.total }}</span></div>
+    </div>
+  </div>
+
+  <div class="panel mb-3">
+    <h2 class="h5">Your details<span class="sub ta">உங்கள் விவரங்கள்</span></h2>
+    <p class="mb-1">{{ order.customer_name }} · {{ order.masked_phone }}</p>
+    {% if order.fulfilment == 'DELIVERY' %}<p class="mb-1">Deliver to: {{ order.delivery_address|linebreaksbr }}</p>
+    {% else %}<p class="mb-1">Collect from the shop. Questions? Call <a href="tel:{{ shop.phone_primary }}">{{ shop.phone_primary }}</a>.</p>{% endif %}
+    {% if order.notes %}<p class="mb-0">Your note: {{ order.notes|linebreaksbr }}</p>{% endif %}
+  </div>
+
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-ng" href="{% url 'home' %}">Order more / மேலும் ஆர்டர்</a>
+    <button class="btn btn-ng-outline" type="button" onclick="window.print()">Print this page</button>
+  </div>
+  <p class="small text-muted mt-3">Keep this page’s link private — anyone with it can see this order. To find it later, use “Track my order” with your order number and mobile number.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Refresh this page automatically when the shop updates the order (checks every 30 seconds).
+  (function () {
+    var current = '{{ order.status }}|{{ order.payment_status }}';
+    function check() {
+      fetch('{% url "api_order_status" order.public_token %}', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && (j.status + '|' + j.payment_status) !== current) window.location.reload(); })
+        .catch(function () {});
+    }
+    {% if not order.is_terminal %}setInterval(check, 30000);{% endif %}
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Order by voice — {{ shop.shop_name }}{% endblock %}
+
+{% block content %}
+{{ config|json_script:"shop-config" }}
+
+<noscript>
+  <div class="noscript-warn my-3">
+    ⚠ This ordering page needs JavaScript. Please turn it on, or call us on
+    <a href="tel:{{ shop.phone_primary }}">{{ shop.phone_primary }}</a> to order.
+    / இந்த பக்கம் வேலை செய்ய JavaScript தேவை. அல்லது எங்களை அழைக்கவும்.
+  </div>
+</noscript>
+
+<!-- STEP 1: voice ordering -->
+<section class="hero" aria-labelledby="voice-title">
+  <h1 id="voice-title">What do you need today?<span class="sub ta">இன்று உங்களுக்கு என்ன வேண்டும்?</span></h1>
+  <p class="mb-2">Tap the microphone and say your items, like
+    <strong>“2 Lux soap, half litre palm oil”</strong>.
+    <span class="sub ta">மைக்கை தட்டி உங்கள் பொருட்களை சொல்லுங்கள். எ.கா: “2 லக்ஸ் சோப்பு, அரை லிட்டர் பாமாயில்”</span></p>
+
+  <div class="lang-group mt-3" role="radiogroup" aria-label="Speaking language / பேசும் மொழி">
+    <input type="radio" name="lang" id="lang-ta" value="ta-IN" checked><label for="lang-ta">தமிழ் + English</label>
+    <input type="radio" name="lang" id="lang-en" value="en-IN"><label for="lang-en">English</label>
+  </div>
+
+  <div class="mic-wrap">
+    <button id="mic-btn" class="mic-btn" type="button" aria-pressed="false" aria-label="Microphone. Tap to speak your order">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg>
+    </button>
+    <div id="mic-label" class="mic-label"></div>
+  </div>
+
+  <div id="status-banner" class="status-banner mx-auto text-start" style="max-width:640px" role="status" aria-live="polite"></div>
+</section>
+
+<section class="panel mx-auto mt-3" style="max-width:720px" aria-labelledby="heard-label">
+  <label id="heard-label" for="speech-text" class="form-label">
+    What I heard — you can fix it here
+    <span class="sub ta">நான் கேட்டது — இங்கே திருத்தலாம்</span>
+  </label>
+  <textarea id="speech-text" class="form-control" rows="3" maxlength="1000" lang="ta"
+            placeholder="Or type your order here / அல்லது இங்கே தட்டச்சு செய்யவும்"></textarea>
+  <div class="d-flex flex-wrap gap-2 mt-3">
+    <button id="find-btn" type="button" class="btn btn-ng flex-grow-1">Find my items <span class="sub ta" style="display:inline;color:#fff"> / பொருட்களைத் தேடு</span></button>
+    <button id="clear-btn" type="button" class="btn btn-ng-outline">Clear / அழி</button>
+  </div>
+  <p class="small text-muted mt-2 mb-0">Voice works best in Chrome on Android. We do not record or keep your voice — only the text you see here.
+    <span class="sub ta">குரல் Android Chrome-ல் சிறப்பாக வேலை செய்யும். உங்கள் குரலை பதிவு செய்ய மாட்டோம்.</span></p>
+</section>
+
+<!-- STEP 2: review -->
+<section id="review-section" class="mt-4 mx-auto" style="max-width:720px" aria-labelledby="review-title" hidden>
+  <h2 id="review-title" class="section-title" tabindex="-1"><span class="step-pill" aria-hidden="true">1</span>Check your items<span class="sub ta">உங்கள் பொருட்களை சரிபார்க்கவும்</span></h2>
+  <div id="review-list"></div>
+</section>
+
+<!-- STEP 3: bill -->
+<section id="bill-section" class="mt-4" aria-labelledby="bill-title" hidden>
+  <h2 id="bill-title" class="section-title"><span class="step-pill" aria-hidden="true">2</span>Your bill<span class="sub ta">உங்கள் பில்</span></h2>
+  <div id="bill-lines" class="bill-lines mb-3"></div>
+  <div id="bill-totals" class="totals mb-3"></div>
+  <div class="d-flex flex-wrap gap-2">
+    <button id="add-more-btn" type="button" class="btn btn-ng-outline">🎤 Add more items <span class="ta"> / மேலும் சேர்</span></button>
+    <button id="checkout-btn" type="button" class="btn btn-ng flex-grow-1">Continue — pickup or delivery <span class="ta"> / தொடரவும்</span></button>
+  </div>
+  <p class="small text-muted mt-2">Prices are checked by the shop’s system again when you place the order.
+    <span class="sub ta">ஆர்டர் செய்யும்போது விலைகள் மீண்டும் சரிபார்க்கப்படும்.</span></p>
+</section>
+
+<!-- STEP 4: delivery + payment -->
+<section id="checkout-section" class="mt-4 mx-auto" style="max-width:720px" aria-labelledby="checkout-title" hidden>
+  <h2 id="checkout-title" class="section-title" tabindex="-1"><span class="step-pill" aria-hidden="true">3</span>Delivery and payment<span class="sub ta">டெலிவரி மற்றும் கட்டணம்</span></h2>
+  <form id="checkout-form" class="panel" novalidate>
+    <fieldset class="mb-4" id="fulfilment-group">
+      <legend class="form-label fs-6">How would you like your order? <span class="sub ta">ஆர்டரை எப்படி பெறுவீர்கள்?</span></legend>
+      <div class="row g-2">
+        <div class="col-12 col-sm-6 choice-card">
+          <input type="radio" name="fulfilment" id="ful-pickup" value="PICKUP" checked>
+          <label for="ful-pickup">Store Pickup<span class="sub ta">கடையில் எடுத்துக்கொள்ள</span></label>
+        </div>
+        <div class="col-12 col-sm-6 choice-card" id="fulfilment-delivery-wrap">
+          <input type="radio" name="fulfilment" id="ful-delivery" value="DELIVERY">
+          <label for="ful-delivery">Home Delivery<span class="sub ta">வீட்டுக்கு டெலிவரி</span></label>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="mb-3">
+      <label for="customer-name" class="form-label">Your name <span class="sub ta">உங்கள் பெயர்</span></label>
+      <input id="customer-name" class="form-control" type="text" autocomplete="name" maxlength="80" required>
+    </div>
+    <div class="mb-3">
+      <label for="customer-phone" class="form-label">Mobile number <span class="sub ta">மொபைல் எண்</span></label>
+      <input id="customer-phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" maxlength="15" placeholder="10-digit number" required>
+    </div>
+    <div class="mb-3" id="address-group" hidden>
+      <label for="delivery-address" class="form-label">Delivery address <span class="sub ta">டெலிவரி முகவரி</span></label>
+      <textarea id="delivery-address" class="form-control" rows="3" maxlength="400" autocomplete="street-address"></textarea>
+    </div>
+    <div class="mb-4">
+      <label for="order-notes" class="form-label">Note for the shop (optional) <span class="sub ta">கடைக்கு குறிப்பு (விருப்பம்)</span></label>
+      <textarea id="order-notes" class="form-control" rows="2" maxlength="500"></textarea>
+    </div>
+
+    <fieldset class="mb-4">
+      <legend class="form-label fs-6">How will you pay? <span class="sub ta">எப்படி செலுத்துவீர்கள்?</span></legend>
+      <div id="payment-options"></div>
+    </fieldset>
+
+    <div class="totals mb-3"><div class="row-t grand" style="border:0;margin:0;padding:0"><span>Total to pay / செலுத்த வேண்டியது</span><span class="price" id="checkout-total"></span></div></div>
+    <div id="form-errors" aria-live="assertive"></div>
+    <button id="place-order-btn" type="submit" class="btn btn-ng w-100 py-3 fs-5">Place order<span class="sub ta" style="color:#fff">ஆர்டர் செய்</span></button>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/app.js' %}" defer></script>{% endblock %}

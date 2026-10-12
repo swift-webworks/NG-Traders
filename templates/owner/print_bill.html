@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Bill {{ order.order_number }} — {{ shop.shop_name }}</title>
+  <style>
+    /* Dedicated print layout. A4 now; a thermal (e.g. 80 mm) layout can be added as another @page rule later. */
+    :root { --terracotta:#C45132; --peach:#F1B79B; --cream:#F7EBDD; --ink:#272233; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", "Nirmala UI", "Noto Sans Tamil", "Latha", Arial, sans-serif;
+           color: var(--ink); background: var(--cream); margin: 0; font-size: 14px; line-height: 1.5; }
+    .toolbar { max-width: 210mm; margin: 12px auto; display: flex; gap: 8px; align-items: center; padding: 0 12px; }
+    .toolbar button, .toolbar a { background: var(--terracotta); color: #fff; border: 0; border-radius: 10px; padding: 12px 18px; font-size: 16px; font-weight: 700; cursor: pointer; text-decoration: none; }
+    .toolbar a.secondary { background: #fff; color: var(--ink); border: 2px solid var(--ink); }
+    .sheet { width: 210mm; min-height: 297mm; margin: 0 auto 20px; background: #fff; padding: 14mm; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
+    header.bill-head { display: flex; justify-content: space-between; gap: 16px; border-bottom: 3px solid var(--terracotta); padding-bottom: 10px; margin-bottom: 12px; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: .02em; } h1 span { color: var(--terracotta); }
+    .doc-title { text-align: right; } .doc-title strong { font-size: 18px; display: block; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
+    .box { border: 1px solid #cfc3b3; border-radius: 6px; padding: 8px 10px; }
+    .box h2 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #5A5468; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    th { background: var(--peach); text-align: left; padding: 6px 8px; border: 1px solid #cfc3b3; font-size: 12px; }
+    td { padding: 6px 8px; border: 1px solid #cfc3b3; vertical-align: top; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .ta { display: block; font-size: 12px; color: #5A5468; }
+    .totals { margin-left: auto; width: 70mm; margin-top: 10px; }
+    .totals div { display: flex; justify-content: space-between; padding: 3px 0; }
+    .totals .grand { border-top: 2px solid var(--ink); font-size: 17px; font-weight: 800; padding-top: 6px; margin-top: 4px; }
+    .stamp { display: inline-block; border: 2px solid var(--ink); border-radius: 6px; padding: 2px 8px; font-weight: 800; margin-right: 6px; }
+    .stamp.unpaid { border-style: dashed; }
+    .foot { margin-top: 18px; font-size: 12px; color: #5A5468; border-top: 1px solid #cfc3b3; padding-top: 8px; }
+    @page { size: A4; margin: 0; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none !important; }
+      .sheet { box-shadow: none; margin: 0; width: auto; min-height: 0; padding: 12mm 14mm; }
+      th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      tr, .box { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">🖨 Print (A4)</button>
+    <a class="secondary" href="{% url 'owner_order' order.pk %}">← Back to order</a>
+    <span>Printing does not change the order or payment status.</span>
+  </div>
+  <div class="sheet">
+    <header class="bill-head">
+      <div>
+        <h1>NG <span>Traders</span></h1>
+        <div>Wholesale provision store</div>
+        <div>📞 {{ shop.phone_primary }}{% if shop.phone_secondary %} · {{ shop.phone_secondary }}{% endif %}</div>
+        {% if shop.address %}<div>{{ shop.address|linebreaksbr }}</div>{% endif %}
+      </div>
+      <div class="doc-title">
+        <strong>ORDER BILL</strong>
+        <div>Bill / Order No: <strong>{{ order.order_number }}</strong></div>
+        <div>Date: {{ order.created_at|date:"j M Y, g:i A" }}</div>
+      </div>
+    </header>
+
+    <div class="grid2">
+      <div class="box"><h2>Customer</h2>
+        <strong>{{ order.customer_name }}</strong><br>{{ order.customer_phone }}
+        {% if order.fulfilment == 'DELIVERY' %}<br>{{ order.delivery_address|linebreaksbr }}{% endif %}
+      </div>
+      <div class="box"><h2>Order details</h2>
+        {{ order.get_fulfilment_display }}<br>
+        Payment method: {{ order.get_payment_method_display }}<br>
+        <span class="stamp {% if order.payment_status != 'PAID' %}unpaid{% endif %}">Payment: {{ order.get_payment_status_display|upper }}</span>
+        <span class="stamp">Order: {{ order.get_status_display|upper }}</span>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th style="width:8mm">#</th><th>Item</th><th class="num">Qty</th><th class="num">Unit price (₹)</th><th class="num">Amount (₹)</th></tr></thead>
+      <tbody>
+        {% for it in order.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td><strong>{{ it.name_en }}</strong>{% if it.name_ta %}<span class="ta">{{ it.name_ta }}</span>{% endif %}</td>
+          <td class="num">{{ it.quantity|floatformat:"-3" }} {{ it.unit_label }}</td>
+          <td class="num">{{ it.unit_price }}</td>
+          <td class="num">{{ it.line_total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <div><span>Subtotal</span><span class="num">₹{{ order.subtotal }}</span></div>
+      <div><span>Delivery charge</span><span class="num">₹{{ order.delivery_charge }}</span></div>
+      <div class="grand"><span>Total</span><span class="num">₹{{ order.total }}</span></div>
+    </div>
+
+    {% if order.notes %}<div class="box" style="margin-top:12px"><h2>Customer note</h2>{{ order.notes|linebreaksbr }}</div>{% endif %}
+
+    <div class="foot">
+      This is an order bill. {% if order.payment_status != 'PAID' %}Payment has <strong>not</strong> been received yet — this document is not a payment receipt.{% else %}Payment recorded as received.{% endif %}
+      Printed {{ printed_at|date:"j M Y, g:i A" }}. Thank you for ordering with NG Traders! / நன்றி!
+    </div>
+  </div>
+</body>
+</html>

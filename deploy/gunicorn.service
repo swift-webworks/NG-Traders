@@ -1,0 +1,17 @@
+[Unit]
+Description=NG Traders (Gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=ngtraders
+Group=www-data
+WorkingDirectory=/srv/ngtraders/app
+EnvironmentFile=/etc/ngtraders.env
+ExecStart=/srv/ngtraders/venv/bin/gunicorn config.wsgi:application \
+    --bind unix:/run/ngtraders.sock --workers 3 --timeout 30 \
+    --access-logfile - --error-logfile -
+RuntimeDirectory=ngtraders
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
